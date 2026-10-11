@@ -1,0 +1,81 @@
+valohai-yaml: duration parsing
+========================================================================
+Testing the real module in C:/Users/VAISHN~1/AppData/Local/Temp/vy.
+
+1. Durations ending in a bare number raise IndexError
+-----------------------------------------------------
+  The regex is (?P<value>[.\d]+)\s*(?P<suffix>[a-z]*). The suffix
+  group is optional, but suffix[0] is indexed with no guard.
+
+  input     outcome                                                   why it matters
+  --------------------------------------------------------------------------------------------------------
+  "3600"    IndexError: string index out of range                     a number quoted in YAML, so it arrives as a str
+  "1h30"    IndexError: string index out of range                     a typo: the trailing m of 1h30m was dropped
+  "1h 30"   IndexError: string index out of range                     the same typo with a space
+  "2w 5"    IndexError: string index out of range                     a trailing bare number
+  "1.5"     IndexError: string index out of range                     a bare float
+
+  For contrast, the int path accepts the same number happily:
+    parse_duration(3600) = 1:00:00
+    parse_duration(72) = 0:01:12
+
+  IndexError count: 5 of 5
+
+2. Only the first letter of the suffix is read
+----------------------------------------------
+  suffixes maps s, m, h, d, w. Because just suffix[0] is checked,
+  any unit starting with m is treated as minutes.
+
+  input     read as               meant       
+  ----------------------------------------------------------
+  1s        0:00:01               1 second    
+  1sec      0:00:01               1 second    
+  1m        0:01:00               1 minute    
+  1min      0:01:00               1 minute    
+  1mins     0:01:00               1 minute    
+  1h        1:00:00               1 hour      
+  1hr       1:00:00               1 hour      
+  1d        1 day, 0:00:00        1 day       
+  1day      1 day, 0:00:00        1 day       
+  1w        7 days, 0:00:00       1 week      
+  1week     7 days, 0:00:00       1 week      
+  1month    0:01:00               1 month       <-- wrong by 43200x
+  1mo       0:01:00               1 month       <-- wrong by 43200x
+
+  A step written as `time-limit: 1month` is killed after 60 seconds.
+  Their own test asserts '1.5d 2hoers' parses as hours, so loose
+  prefix matching is deliberate. The month collision looks like a
+  side effect of it rather than a decision.
+
+3. The patch turns the IndexError into a clear ValueError
+---------------------------------------------------------
+  input     shipped                                     patched
+  --------------------------------------------------------------------------------------------------------
+  "3600"    IndexError: string index out of range       ValueError: Missing duration suffix in '3600'; expected one of dhmsw
+  "1h30"    IndexError: string index out of range       ValueError: Missing duration suffix in '30'; expected one of dhmsw
+  "1h 30"   IndexError: string index out of range       ValueError: Missing duration suffix in '30'; expected one of dhmsw
+  "2w 5"    IndexError: string index out of range       ValueError: Missing duration suffix in '5'; expected one of dhmsw
+  "1.5"     IndexError: string index out of range       ValueError: Missing duration suffix in '1.5'; expected one of dhmsw
+
+  The patch does not guess a unit. Treating a bare number as seconds
+  would match the int path, but it would also make '1h30' mean one
+  hour and thirty seconds, silently, when 1h30m was meant. An error
+  is the safer answer; the choice is noted in the issue.
+
+4. The eight existing test cases still pass
+-------------------------------------------
+  From tests/test_duration_parsing.py.
+
+  PASS  '60 minutes  '     expected 1:00:00            got 1:00:00
+  PASS  '1h10m'            expected 1:10:00            got 1:10:00
+  PASS  '2w'               expected 14 days, 0:00:00   got 14 days, 0:00:00
+  PASS  '1.5d'             expected 1 day, 12:00:00    got 1 day, 12:00:00
+  PASS  '1.5d 2hörs'       expected 1 day, 14:00:00    got 1 day, 14:00:00
+  PASS  ''                 expected None               got None
+  PASS  '   '              expected None               got None
+  PASS  72                 expected 0:01:12            got 0:01:12
+
+  all 8 pass
+
+========================================================================
+Both defects reproduced, and the patch keeps every existing case.

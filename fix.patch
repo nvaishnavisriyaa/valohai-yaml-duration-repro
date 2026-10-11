@@ -1,0 +1,20 @@
+diff --git a/valohai_yaml/utils/duration.py b/valohai_yaml/utils/duration.py
+index f21650d..78668a4 100644
+--- a/valohai_yaml/utils/duration.py
++++ b/valohai_yaml/utils/duration.py
+@@ -19,6 +19,15 @@ def parse_duration_string(duration_str: str) -> datetime.timedelta:
+     for match in simple_duration_re.finditer(duration_str):
+         value = float(match.group("value"))
+         suffix = match.group("suffix").lower()
++        # The suffix group is optional, so a bare number such as "3600", or a
++        # trailing one such as the "30" in "1h30", arrives here empty. Indexing
++        # it unguarded raised IndexError, which callers expecting this module's
++        # own ValueError did not catch.
++        if not suffix:
++            raise ValueError(
++                f"Missing duration suffix in {match.group(0)!r}; "
++                f"expected one of {''.join(sorted(suffixes))}"
++            )
+         if suffix[0] not in suffixes:
+             raise ValueError(f"Unknown duration suffix in {match.group(0)!r}")
+         total_duration_sec += value * suffixes[suffix[0]]
