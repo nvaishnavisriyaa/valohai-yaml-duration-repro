@@ -1,0 +1,10 @@
+The function `shipped_parse_duration_string` in verify.py is copied verbatim
+from valohai-yaml, for the purpose of demonstrating a defect in it.
+
+    valohai-yaml
+    Copyright (c) Valohai
+    MIT License
+    https://github.com/valohai/valohai-yaml
+
+Everything else in this repository is the work of its author, under the MIT
+License in LICENSE.
