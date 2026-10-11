@@ -15,6 +15,8 @@ without checking it is there. Two things come out of it:
 Both are reachable from `valohai.yaml` through `time-limit` and
 `no-output-timeout` ([`step.py` lines 95 to 97](https://github.com/valohai/valohai-yaml/blob/master/valohai_yaml/objs/step.py#L95-L97)).
 
+Reported upstream as [valohai/valohai-yaml#227](https://github.com/valohai/valohai-yaml/issues/227).
+
 ## The code
 
 [`valohai_yaml/utils/duration.py`](https://github.com/valohai/valohai-yaml/blob/master/valohai_yaml/utils/duration.py):
